@@ -1,17 +1,20 @@
-# Signal Lab V1.4 — servidor Railway (simulación)
+# Signal Lab V1.4.1 — registro técnico (sin alterar las señales)
 
-## Instalación
-1. Sube `server.js`, `package.json` y la carpeta `public` a la **raíz** de tu repositorio `signal-lab` en GitHub.
-2. Railway → servicio `signal-lab` → Settings → Source: conecta ese repositorio/rama. El build detectará Node.js y ejecutará `npm start` (si no, configura Start Command = `npm start`).
-3. Mantén el dominio público de Railway, con el puerto automático `PORT` (el servidor escucha en `0.0.0.0`).
-4. Para conservar resultados después de reinicios/redeploys, crea un **Volume** en Railway montado en `/data` y agrega la variable `DATA_DIR=/data`. Si no, el archivo JSON puede perderse cuando Railway recree el contenedor.
-5. Abre el dominio público. En Signal selecciona activo, duración, modo, intervalo y límite; pulsa `Iniciar automático`.
+Esta modificación de V1.4 **NO cambia** la fórmula EMA/RSI/momentum, los filtros, los umbrales, la duración ni las reglas de WIN/LOSS.
 
-## Consideraciones
-- El proceso hace consultas REST a Binance cada ~5 segundos. El estado `En vivo (servidor)` indica datos recientes, **no** transmisión WebSocket ni ejecución de órdenes.
-- Una sola configuración y señal activa por servicio; los cambios se comparten entre todos los navegadores.
-- Sin autenticación: cualquiera con acceso al dominio puede modificar la configuración y borrar historial. No publiques datos sensibles; agrega autenticación antes de uso compartido.
-- Railway puede suspender o reiniciar el servicio según el plan, y el volumen requiere configuración explícita. Tras un reinicio, las señales vencidas sin cotización fresca se registran como `SIN DATOS`.
-- Las evaluaciones cortas (5/15 segundos) se aproximan con muestreo de 5 segundos y no garantizan precio exacto al vencimiento. Para precisión se requiere almacenar ticks y liquidar al timestamp preciso.
-- El sistema usa precios **spot** de Binance, no precios OTC ni de un bróker. Es una herramienta educativa, no una estrategia validada ni una promesa de rentabilidad.
-- El conteo de efectividad excluye `EMPATE`, `SIN DATOS` y `ESPERAR` del denominador de WIN/LOSS.
+## Qué se añade
+- Al emitir `HIGHER`, `LOWER` o `ESPERAR`, guarda las ocho lecturas técnicas observadas en ese instante.
+- Guarda además los ocho valores numéricos: EMA50, EMA200, RSI14, momentum en unidades de precio, resistencia, soporte, posición en rango (%) y volatilidad del rango (%).
+- Registra puntuación (`score`), intensidad (`strength`), umbral requerido, y fecha del último precio (`marketDataAt`).
+- Incluye estos datos en `/api/export` (columnas nuevas **después** de las ocho columnas anteriores).
+- En `Today`, cada evaluación presenta un apartado desplegable con las ocho lecturas.
+
+## Precaución: NO instalar a mitad de las 500 evaluaciones
+**Primero** completar y exportar el historial de las 500 evaluaciones de V1.4. La actualización del servidor provoca un nuevo despliegue y un reinicio; sin un volumen persistente configurado (`DATA_DIR=/data` en un Railway Volume montado en `/data`) podría perderse el historial. El código nuevo no tiene capacidad para reconstruir las lecturas de señales antiguas.
+
+Después de las 500 evaluaciones, realizar respaldo CSV y migración controlada. Recomendada una instancia separada para pruebas de V1.4.1.
+
+## Instalación posterior
+Sube `server.js`, `package.json` y `public/index.html` a las mismas rutas del repositorio, una vez terminado el experimento de 500 evaluaciones y tras respaldar CSV y `state.json` si corresponde. Railway deberá volver a desplegar.
+
+**Seguridad:** la V1.4 original no tiene autenticación de controles y permite limpiar historial desde el dominio público. No conectar bróker ni claves a esta versión hasta implementar autenticación.
